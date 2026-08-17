@@ -1,0 +1,34 @@
+:root {
+  --jt-red: #c8102e;
+  --jt-red-dark: #9c0c23;
+  --jt-navy: #1f3864;
+  --bg: #f4f5f7;
+  --panel: #ffffff;
+  --line: #e6e8ec;
+  --text: #1b2430;
+  --muted: #6b7280;
+  --franchise: #c8102e;
+  --agent: #1f3864;
+  --tc: #e8a417;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
