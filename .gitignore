@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Machine-specific npm config (e.g. script-shell paths) must never be committed:
+# an absolute Windows path here breaks Linux CI/deploy builds.
+.npmrc
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
