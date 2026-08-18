@@ -18,6 +18,8 @@ const COL = {
   kota: 11,
   kecamatan: 12,
   fungsiDp: 16,
+  // "Pusat Finansial" — the AGENT12..AGENT40 grouping shown in the Agent filter.
+  agent: 17,
   levelAgent: 7,
   jemari: 24,
   alamat: 36,
@@ -85,6 +87,7 @@ async function main() {
       kecamatan: titleCase(row.getCell(COL.kecamatan).value),
       model: row.getCell(COL.modelBisnis).value ?? '',
       fungsi: row.getCell(COL.fungsiDp).value ?? '',
+      agent: String(row.getCell(COL.agent).value ?? '').trim(),
       levelAgent: row.getCell(COL.levelAgent).value ?? '',
       jemari: row.getCell(COL.jemari).value ?? 'Tidak',
       address: (row.getCell(COL.alamat).value ?? '').toString().trim(),

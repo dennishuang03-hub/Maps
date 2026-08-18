@@ -1,25 +1,80 @@
 :root {
-  --jt-red: #c8102e;
+  --jt-red: #e11d3c;
   --jt-red-dark: #9c0c23;
   --jt-red-light: #ffe4e8;
-  --jt-navy: #1f3864;
+  --jt-navy: #16233f;
   --jt-navy-light: #eaeff8;
-  --bg: #f4f5f7;
+  --bg: #f2f3f6;
   --panel: #ffffff;
+  --panel-glass: rgba(255, 255, 255, 0.92);
+  --surface: #fafbfc;
+  --surface-hover: #ffffff;
   --line: #e6e8ec;
+  --line-strong: #d7dae1;
   --text: #1b2430;
+  --text-body: #3a4250;
   --muted: #6b7280;
-  --franchise: #c8102e;
+  --chip-bg: #eceef2;
+  --scrim: rgba(15, 20, 32, 0.5);
+  --scrollbar: #d3d7de;
+  --scrollbar-hover: #b7bcc6;
+  --franchise: #e11d3c;
   --agent: #1f3864;
   --tc: #e8a417;
+  --gold: #d4a72c;
+  --silver: #9aa3b2;
+  --bronze: #c17a45;
+  --connector: #1f3864;
+  /* Always-dark navy: used behind white text (modal header, rank medals,
+     origin pin) so it must NOT invert with the theme. */
+  --navy-solid: #16233f;
+  --navy-solid-2: #0e1830;
+  --navy-solid-3: #35507f;
 
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-sm: 9px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
-  --shadow-md: 0 4px 14px rgba(16, 24, 40, 0.08);
-  --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.14);
+  --shadow-md: 0 6px 18px rgba(16, 24, 40, 0.1);
+  --shadow-lg: 0 16px 40px rgba(16, 24, 40, 0.16);
+  --shadow-xl: 0 24px 64px rgba(16, 24, 40, 0.24);
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+:root[data-theme='dark'] {
+  --jt-red: #ff4560;
+  --jt-red-dark: #c8102e;
+  --jt-red-light: rgba(255, 69, 96, 0.18);
+  --jt-navy: #dbe4f5;
+  --jt-navy-light: rgba(120, 158, 232, 0.16);
+  --bg: #0d1117;
+  --panel: #161b24;
+  --panel-glass: rgba(22, 27, 36, 0.92);
+  --surface: #1c222c;
+  --surface-hover: #222936;
+  --line: #2a323f;
+  --line-strong: #3a4453;
+  --text: #e8ecf3;
+  --text-body: #b6bfcd;
+  --muted: #8b95a6;
+  --chip-bg: #262e3a;
+  --scrim: rgba(3, 6, 12, 0.66);
+  --scrollbar: #38414f;
+  --scrollbar-hover: #4b5666;
+  --franchise: #ff4560;
+  --agent: #7ba3f0;
+  --tc: #f0b73f;
+  --connector: #8fb0ef;
+  --navy-solid: #202b45;
+  --navy-solid-2: #131b2c;
+  --navy-solid-3: #3d5c94;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.65);
 }
 
 *,
@@ -36,11 +91,12 @@ body,
 
 body {
   margin: 0;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background 0.25s var(--ease), color 0.25s var(--ease);
 }
 
 ::selection {
@@ -48,25 +104,52 @@ body {
   color: var(--jt-red-dark);
 }
 
+:root[data-theme='dark'] ::selection {
+  color: #fff;
+}
+
 /* Thin, unobtrusive scrollbars for panels */
 .sidebar,
-.results-list {
+.results-list,
+.nearest-modal__list,
+.top-search__panel {
   scrollbar-width: thin;
-  scrollbar-color: #d3d7de transparent;
+  scrollbar-color: var(--scrollbar) transparent;
 }
 
 .sidebar::-webkit-scrollbar,
-.results-list::-webkit-scrollbar {
+.results-list::-webkit-scrollbar,
+.nearest-modal__list::-webkit-scrollbar,
+.top-search__panel::-webkit-scrollbar {
   width: 7px;
 }
 
 .sidebar::-webkit-scrollbar-thumb,
-.results-list::-webkit-scrollbar-thumb {
-  background: #d3d7de;
+.results-list::-webkit-scrollbar-thumb,
+.nearest-modal__list::-webkit-scrollbar-thumb,
+.top-search__panel::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
   border-radius: 999px;
 }
 
 .sidebar::-webkit-scrollbar-thumb:hover,
-.results-list::-webkit-scrollbar-thumb:hover {
-  background: #b7bcc6;
+.results-list::-webkit-scrollbar-thumb:hover,
+.nearest-modal__list::-webkit-scrollbar-thumb:hover,
+.top-search__panel::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-hover);
+}
+
+/* Dark map tiles for the light-only basemaps would glare; the switcher pairs
+   themes with matching tiles instead, so only Leaflet chrome needs toning. */
+:root[data-theme='dark'] .leaflet-container {
+  background: #0b0f15;
+}
+
+:root[data-theme='dark'] .leaflet-control-attribution {
+  background: rgba(22, 27, 36, 0.85) !important;
+  color: var(--muted) !important;
+}
+
+:root[data-theme='dark'] .leaflet-control-attribution a {
+  color: var(--agent) !important;
 }

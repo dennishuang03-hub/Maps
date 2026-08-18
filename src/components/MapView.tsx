@@ -4,9 +4,12 @@ import L from 'leaflet'
 import 'leaflet.markercluster'
 import type { DropPoint } from '../types/dropPoint'
 import type { LatLng } from '../lib/geo'
+import type { MapStyle } from '../lib/mapStyles'
 
 export interface MapController {
   focusPoint: (point: DropPoint) => void
+  focusHighlighted: (point: DropPoint) => void
+  fitPoints: (points: LatLng[]) => void
 }
 
 const MODEL_COLOR_VAR: Record<string, string> = {
@@ -14,6 +17,8 @@ const MODEL_COLOR_VAR: Record<string, string> = {
   Agent: 'var(--agent)',
   'TC Agent': 'var(--tc)',
 }
+
+const RANK_RING_VAR = ['var(--gold)', 'var(--silver)', 'var(--bronze)']
 
 function pointIcon(model: string) {
   const color = MODEL_COLOR_VAR[model] ?? 'var(--muted)'
@@ -32,6 +37,27 @@ function userIcon() {
     html: '<span class="dp-user-dot"></span>',
     iconSize: [18, 18],
     iconAnchor: [9, 9],
+  })
+}
+
+function highlightIcon(rank: number) {
+  const ring = RANK_RING_VAR[rank] ?? 'var(--jt-red)'
+  return L.divIcon({
+    className: '',
+    html: `<span class="dp-highlight-pin" style="--ring:${ring}"><span class="dp-highlight-pin__dot"></span><span class="dp-highlight-pin__rank">${rank + 1}</span></span>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -18],
+  })
+}
+
+function originIcon() {
+  return L.divIcon({
+    className: '',
+    html: '<span class="dp-origin-pin"><span class="dp-origin-pin__glyph">&#9733;</span></span>',
+    iconSize: [30, 38],
+    iconAnchor: [15, 36],
+    popupAnchor: [0, -34],
   })
 }
 
@@ -62,13 +88,16 @@ function popupHtml(point: DropPoint): string {
 
 interface ClusterLayerProps {
   points: DropPoint[]
+  highlightPoints: DropPoint[]
   controllerRef: React.MutableRefObject<MapController | null>
 }
 
-function ClusterLayer({ points, controllerRef }: ClusterLayerProps) {
+function ClusterLayer({ points, highlightPoints, controllerRef }: ClusterLayerProps) {
   const map = useMap()
   const clusterRef = useRef<L.MarkerClusterGroup | null>(null)
   const markersById = useRef<Map<string, L.Marker>>(new Map())
+  const highlightGroupRef = useRef<L.LayerGroup | null>(null)
+  const highlightMarkersById = useRef<Map<string, L.Marker>>(new Map())
 
   useEffect(() => {
     const cluster = L.markerClusterGroup({
@@ -82,9 +111,16 @@ function ClusterLayer({ points, controllerRef }: ClusterLayerProps) {
     })
     clusterRef.current = cluster
     map.addLayer(cluster)
+
+    const highlightGroup = L.layerGroup()
+    highlightGroupRef.current = highlightGroup
+    map.addLayer(highlightGroup)
+
     return () => {
       map.removeLayer(cluster)
+      map.removeLayer(highlightGroup)
       clusterRef.current = null
+      highlightGroupRef.current = null
     }
   }, [map])
 
@@ -105,6 +141,21 @@ function ClusterLayer({ points, controllerRef }: ClusterLayerProps) {
   }, [points])
 
   useEffect(() => {
+    const group = highlightGroupRef.current
+    if (!group) return
+
+    group.clearLayers()
+    highlightMarkersById.current.clear()
+
+    highlightPoints.forEach((point, rank) => {
+      const marker = L.marker([point.lat, point.lng], { icon: highlightIcon(rank), zIndexOffset: 1000 })
+      marker.bindPopup(popupHtml(point))
+      marker.addTo(group)
+      highlightMarkersById.current.set(point.id, marker)
+    })
+  }, [highlightPoints])
+
+  useEffect(() => {
     controllerRef.current = {
       focusPoint: (point) => {
         const cluster = clusterRef.current
@@ -114,6 +165,23 @@ function ClusterLayer({ points, controllerRef }: ClusterLayerProps) {
         } else {
           map.flyTo([point.lat, point.lng], 15)
         }
+      },
+      focusHighlighted: (point) => {
+        map.flyTo([point.lat, point.lng], 16)
+        // Looked up lazily: by the time the flight ends, the highlight
+        // layer will have already rebuilt down to just this one marker.
+        map.once('moveend', () => {
+          highlightMarkersById.current.get(point.id)?.openPopup()
+        })
+      },
+      fitPoints: (pts) => {
+        if (pts.length === 0) return
+        if (pts.length === 1) {
+          map.flyTo([pts[0].lat, pts[0].lng], 15)
+          return
+        }
+        const bounds = L.latLngBounds(pts.map((p) => [p.lat, p.lng] as [number, number]))
+        map.flyToBounds(bounds, { padding: [80, 80], maxZoom: 16 })
       },
     }
     return () => {
@@ -143,7 +211,7 @@ function UserLocationLayer({ location }: { location: LatLng | null }) {
     } else {
       markerRef.current.setLatLng([location.lat, location.lng])
     }
-    map.flyTo([location.lat, location.lng], 12)
+    map.flyTo([location.lat, location.lng], 15)
   }, [location, map])
 
   useEffect(
@@ -159,15 +227,104 @@ function UserLocationLayer({ location }: { location: LatLng | null }) {
   return null
 }
 
+interface NearestOverlayLayerProps {
+  origin: LatLng | null
+  originLabel: string
+  showOriginPin: boolean
+  /** Points to draw dashed connectors to; empty in radius mode. */
+  targets: DropPoint[]
+  radiusKm: number | null
+}
+
+function NearestOverlayLayer({ origin, originLabel, showOriginPin, targets, radiusKm }: NearestOverlayLayerProps) {
+  const map = useMap()
+  const groupRef = useRef<L.LayerGroup | null>(null)
+
+  useEffect(() => {
+    const group = L.layerGroup()
+    groupRef.current = group
+    map.addLayer(group)
+    return () => {
+      map.removeLayer(group)
+      groupRef.current = null
+    }
+  }, [map])
+
+  useEffect(() => {
+    const group = groupRef.current
+    if (!group) return
+
+    group.clearLayers()
+    if (!origin) return
+
+    if (radiusKm !== null) {
+      L.circle([origin.lat, origin.lng], {
+        radius: radiusKm * 1000,
+        className: 'dp-radius-circle',
+        weight: 2,
+        dashArray: '7 7',
+        interactive: false,
+      }).addTo(group)
+    }
+
+    targets.forEach((point) => {
+      const path: [number, number][] = [
+        [origin.lat, origin.lng],
+        [point.lat, point.lng],
+      ]
+      // A soft, wider "halo" line under the real dashed line gives a subtle
+      // 3D lift without relying on an SVG drop-shadow filter, which renders
+      // as a solid smear on tightly-dashed long paths in Chromium.
+      L.polyline(path, {
+        className: 'dp-connector-halo',
+        weight: 7,
+        lineCap: 'round',
+        interactive: false,
+      }).addTo(group)
+      L.polyline(path, {
+        className: 'dp-connector-line',
+        weight: 2.5,
+        dashArray: '9 8',
+        lineCap: 'round',
+        interactive: false,
+      }).addTo(group)
+    })
+
+    if (showOriginPin) {
+      L.marker([origin.lat, origin.lng], { icon: originIcon(), zIndexOffset: 900 })
+        .bindPopup(`<div class="dp-popup"><div class="dp-popup__title">${escapeHtml(originLabel)}</div></div>`)
+        .addTo(group)
+    }
+  }, [origin, originLabel, showOriginPin, targets, radiusKm])
+
+  return null
+}
+
 interface MapViewProps {
   points: DropPoint[]
+  highlightPoints: DropPoint[]
   userLocation: LatLng | null
+  origin: LatLng | null
+  originLabel: string
+  showOriginPin: boolean
+  radiusKm: number | null
+  mapStyle: MapStyle
   controllerRef: React.MutableRefObject<MapController | null>
 }
 
 const JAWA_BALI_CENTER: [number, number] = [-7.3, 109.5]
 
-export function MapView({ points, userLocation, controllerRef }: MapViewProps) {
+export function MapView({
+  points,
+  highlightPoints,
+  userLocation,
+  origin,
+  originLabel,
+  showOriginPin,
+  radiusKm,
+  mapStyle,
+  controllerRef,
+}: MapViewProps) {
   return (
     <MapContainer
       center={JAWA_BALI_CENTER}
@@ -176,11 +333,21 @@ export function MapView({ points, userLocation, controllerRef }: MapViewProps) {
       zoomControl={false}
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        key={mapStyle.id}
+        attribution={mapStyle.attribution}
+        url={mapStyle.url}
+        maxZoom={mapStyle.maxZoom}
+        {...(mapStyle.subdomains ? { subdomains: mapStyle.subdomains } : {})}
       />
-      <ClusterLayer points={points} controllerRef={controllerRef} />
+      <ClusterLayer points={points} highlightPoints={highlightPoints} controllerRef={controllerRef} />
       <UserLocationLayer location={userLocation} />
+      <NearestOverlayLayer
+        origin={origin}
+        originLabel={originLabel}
+        showOriginPin={showOriginPin}
+        targets={highlightPoints}
+        radiusKm={radiusKm}
+      />
     </MapContainer>
   )
 }

@@ -23,3 +23,9 @@ export function formatDistance(km: number): string {
   if (km < 1) return `${Math.round(km * 1000)} m`
   return `${km.toFixed(1)} km`
 }
+
+export function nearestPoints<T extends LatLng>(origin: LatLng, points: T[], count: number): T[] {
+  return [...points]
+    .sort((a, b) => haversineDistanceKm(origin, a) - haversineDistanceKm(origin, b))
+    .slice(0, count)
+}
