@@ -2,7 +2,7 @@ import type { DropPointFilters } from '../../hooks/useDropPointFilters'
 import type { LatLng } from '../../lib/geo'
 import type { DropPoint } from '../../types/dropPoint'
 import { Brand } from './Brand'
-import { SearchAndLocate } from './SearchAndLocate'
+import { SearchBar } from './SearchBar'
 import { FilterSelect } from './FilterSelect'
 import { StatsCards } from './StatsCards'
 import { Legend } from './Legend'
@@ -11,12 +11,10 @@ import { ResultsList } from './ResultsList'
 interface SidebarProps {
   filters: DropPointFilters
   userLocation: LatLng | null
-  locateStatus: 'idle' | 'locating' | 'located' | 'denied'
-  onLocateMe: () => void
   onSelectPoint: (point: DropPoint) => void
 }
 
-export function Sidebar({ filters, userLocation, locateStatus, onLocateMe, onSelectPoint }: SidebarProps) {
+export function Sidebar({ filters, userLocation, onSelectPoint }: SidebarProps) {
   const {
     search,
     setSearch,
@@ -38,7 +36,7 @@ export function Sidebar({ filters, userLocation, locateStatus, onLocateMe, onSel
     <div className="sidebar" id="sidebar">
       <Brand />
 
-      <SearchAndLocate value={search} onChange={setSearch} onLocateMe={onLocateMe} locateStatus={locateStatus} />
+      <SearchBar value={search} onChange={setSearch} />
 
       <div className="filters">
         <FilterSelect label="Provinsi" value={province} options={provinces} allLabel="Semua Provinsi" onChange={setProvince} />
@@ -54,12 +52,6 @@ export function Sidebar({ filters, userLocation, locateStatus, onLocateMe, onSel
       <StatsCards points={filtered} />
       <Legend />
       <ResultsList points={filtered} userLocation={userLocation} onSelect={onSelectPoint} />
-
-      <div className="note">
-        <b>Data operasional J&amp;T sesungguhnya</b> (1.790 DP, Jawa &amp; Bali) — bukan data ilustrasi. Belum
-        melalui review keamanan/persetujuan publikasi. Jangan disebarluaskan di luar kanal internal atau
-        di-deploy ke domain publik tanpa persetujuan IT &amp; atasan.
-      </div>
     </div>
   )
 }

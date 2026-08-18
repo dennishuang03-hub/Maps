@@ -1,7 +1,9 @@
 :root {
   --jt-red: #c8102e;
   --jt-red-dark: #9c0c23;
+  --jt-red-light: #ffe4e8;
   --jt-navy: #1f3864;
+  --jt-navy-light: #eaeff8;
   --bg: #f4f5f7;
   --panel: #ffffff;
   --line: #e6e8ec;
@@ -10,6 +12,14 @@
   --franchise: #c8102e;
   --agent: #1f3864;
   --tc: #e8a417;
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 4px 14px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.14);
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 *,
@@ -31,4 +41,32 @@ body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--jt-red-light);
+  color: var(--jt-red-dark);
+}
+
+/* Thin, unobtrusive scrollbars for panels */
+.sidebar,
+.results-list {
+  scrollbar-width: thin;
+  scrollbar-color: #d3d7de transparent;
+}
+
+.sidebar::-webkit-scrollbar,
+.results-list::-webkit-scrollbar {
+  width: 7px;
+}
+
+.sidebar::-webkit-scrollbar-thumb,
+.results-list::-webkit-scrollbar-thumb {
+  background: #d3d7de;
+  border-radius: 999px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover,
+.results-list::-webkit-scrollbar-thumb:hover {
+  background: #b7bcc6;
 }
