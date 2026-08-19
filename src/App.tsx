@@ -58,6 +58,21 @@ function NearestIcon() {
   )
 }
 
+function RecenterIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="12" r="2.5" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  )
+}
+
 function initialTheme(fromUrl: string): Theme {
   if (fromUrl === 'light' || fromUrl === 'dark') return fromUrl
   const stored = localStorage.getItem(THEME_KEY)
@@ -204,6 +219,8 @@ function App() {
   }, [])
 
   const handleLocateMe = useCallback(() => requestLocation(() => {}), [requestLocation])
+
+  const handleRecenter = useCallback(() => controllerRef.current?.resetView(), [])
 
   const exitDiscovery = useCallback(() => {
     setDiscovery(null)
@@ -366,6 +383,15 @@ function App() {
           >
             <NearestIcon />
             <span>DP/CP Terdekat</span>
+          </button>
+          <button
+            type="button"
+            className="fab-btn fab-btn--icon"
+            onClick={handleRecenter}
+            title="Kembali ke tampilan Jawa &amp; Bali"
+            aria-label="Kembali ke tampilan Jawa &amp; Bali"
+          >
+            <RecenterIcon />
           </button>
           <button
             type="button"

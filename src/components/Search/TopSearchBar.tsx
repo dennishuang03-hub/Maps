@@ -77,24 +77,9 @@ export function TopSearchBar({ value, onChange, allPoints, onSelectPoint, onSele
     [],
   )
 
-  function handleValueChange(next: string) {
-    setText(next)
-    pushChange(next)
-    setOpen(true)
-    setActiveIndex(-1)
-
+  function runPlaceSearch(q: string, delayMs: number) {
     abortRef.current?.abort()
     if (debounceRef.current) clearTimeout(debounceRef.current)
-
-    const q = next.trim()
-    if (q.length === 0) {
-      onClear()
-    }
-    if (q.length < 3) {
-      setPlaces([])
-      setLoadingPlaces(false)
-      return
-    }
 
     setLoadingPlaces(true)
     debounceRef.current = setTimeout(() => {
@@ -109,7 +94,39 @@ export function TopSearchBar({ value, onChange, allPoints, onSelectPoint, onSele
           if ((err as Error)?.name !== 'AbortError') setPlaces([])
         })
         .finally(() => setLoadingPlaces(false))
-    }, 400)
+    }, delayMs)
+  }
+
+  function handleValueChange(next: string) {
+    setText(next)
+    pushChange(next)
+    setOpen(true)
+    setActiveIndex(-1)
+
+    const q = next.trim()
+    if (q.length === 0) {
+      onClear()
+    }
+    if (q.length < 3) {
+      abortRef.current?.abort()
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      setPlaces([])
+      setLoadingPlaces(false)
+      return
+    }
+
+    runPlaceSearch(q, 400)
+  }
+
+  // Re-opening the dropdown must never dead-end on "Tidak ada hasil yang
+  // cocok": a place picked earlier leaves its label in the box, which matches
+  // no Drop Point, so if the cached place list is gone we fetch it again.
+  function handleFocus() {
+    setOpen(true)
+    const q = text.trim()
+    if (q.length >= 3 && places.length === 0 && !loadingPlaces) {
+      runPlaceSearch(q, 0)
+    }
   }
 
   const items: SuggestionItem[] = useMemo(
@@ -134,7 +151,9 @@ export function TopSearchBar({ value, onChange, allPoints, onSelectPoint, onSele
       pushChange('')
       onSelectPlace(item.place)
     }
-    setPlaces([])
+    // The place list is kept, not cleared: after leaving discovery mode the
+    // user can re-open the box and tap the same place to get the 3 nearest
+    // DP/CP back without retyping.
     setOpen(false)
   }
 
@@ -166,7 +185,7 @@ export function TopSearchBar({ value, onChange, allPoints, onSelectPoint, onSele
           value={text}
           placeholder="Cari kelurahan, kabupaten, jalan, atau nama Drop Point…"
           onChange={(e) => handleValueChange(e.target.value)}
-          onFocus={() => setOpen(true)}
+          onFocus={handleFocus}
           onKeyDown={handleKeyDown}
           aria-label="Cari lokasi atau Drop Point"
           aria-expanded={showDropdown}

@@ -10,6 +10,42 @@ export interface MapController {
   focusPoint: (point: DropPoint) => void
   focusHighlighted: (point: DropPoint) => void
   fitPoints: (points: LatLng[]) => void
+  /** Back to the whole Jawa & Bali view — the map's "I'm lost" button. */
+  resetView: () => void
+}
+
+const MOBILE_BREAKPOINT = 780
+
+function isMobileViewport() {
+  return window.innerWidth <= MOBILE_BREAKPOINT
+}
+
+/**
+ * Popups are sized against the live viewport, not a fixed 300px, and their
+ * auto-pan keeps clear of the floating chrome (search dock + chip on top, FABs
+ * at the bottom) so a popup can never end up under the search bar or off-screen
+ * on a phone.
+ */
+function popupOptions(): L.PopupOptions {
+  const mobile = isMobileViewport()
+  const width = Math.max(200, Math.min(300, window.innerWidth - 48))
+  return {
+    maxWidth: width,
+    minWidth: Math.min(200, width),
+    autoPan: true,
+    keepInView: true,
+    autoPanPaddingTopLeft: L.point(14, mobile ? 140 : 96),
+    autoPanPaddingBottomRight: L.point(14, mobile ? 84 : 40),
+  }
+}
+
+/** Same idea as `popupOptions`, for `fitBounds`: keep pins out from under the chrome. */
+function chromePadding(): L.FitBoundsOptions {
+  const mobile = isMobileViewport()
+  return {
+    paddingTopLeft: mobile ? [28, 150] : [80, 110],
+    paddingBottomRight: mobile ? [28, 96] : [80, 80],
+  }
 }
 
 const MODEL_COLOR_VAR: Record<string, string> = {
@@ -133,7 +169,7 @@ function ClusterLayer({ points, highlightPoints, controllerRef }: ClusterLayerPr
 
     const markers = points.map((point) => {
       const marker = L.marker([point.lat, point.lng], { icon: pointIcon(point.model) })
-      marker.bindPopup(popupHtml(point))
+      marker.bindPopup(popupHtml(point), popupOptions())
       markersById.current.set(point.id, marker)
       return marker
     })
@@ -149,7 +185,7 @@ function ClusterLayer({ points, highlightPoints, controllerRef }: ClusterLayerPr
 
     highlightPoints.forEach((point, rank) => {
       const marker = L.marker([point.lat, point.lng], { icon: highlightIcon(rank), zIndexOffset: 1000 })
-      marker.bindPopup(popupHtml(point))
+      marker.bindPopup(popupHtml(point), popupOptions())
       marker.addTo(group)
       highlightMarkersById.current.set(point.id, marker)
     })
@@ -181,13 +217,48 @@ function ClusterLayer({ points, highlightPoints, controllerRef }: ClusterLayerPr
           return
         }
         const bounds = L.latLngBounds(pts.map((p) => [p.lat, p.lng] as [number, number]))
-        map.flyToBounds(bounds, { padding: [80, 80], maxZoom: 16 })
+        map.flyToBounds(bounds, { ...chromePadding(), maxZoom: 16 })
+      },
+      resetView: () => {
+        map.closePopup()
+        map.flyTo(JAWA_BALI_CENTER, isMobileViewport() ? 7 : 8)
       },
     }
     return () => {
       controllerRef.current = null
     }
   }, [map, controllerRef])
+
+  return null
+}
+
+/**
+ * Mobile browsers resize the viewport when the keyboard opens or the in-app
+ * browser bars slide away. Leaflet caches the container size, so without this
+ * the map keeps centering against stale dimensions — pins drift off screen and
+ * "center on me" lands in the wrong place.
+ */
+function ViewportSync() {
+  const map = useMap()
+
+  useEffect(() => {
+    let frame = 0
+    const sync = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => map.invalidateSize({ animate: false }))
+    }
+
+    window.addEventListener('resize', sync)
+    window.addEventListener('orientationchange', sync)
+    window.visualViewport?.addEventListener('resize', sync)
+
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('resize', sync)
+      window.removeEventListener('orientationchange', sync)
+      window.visualViewport?.removeEventListener('resize', sync)
+    }
+  }, [map])
 
   return null
 }
@@ -206,7 +277,7 @@ function UserLocationLayer({ location }: { location: LatLng | null }) {
     }
     if (!markerRef.current) {
       markerRef.current = L.marker([location.lat, location.lng], { icon: userIcon() })
-        .bindPopup('Lokasi Anda')
+        .bindPopup('Lokasi Anda', popupOptions())
         .addTo(map)
     } else {
       markerRef.current.setLatLng([location.lat, location.lng])
@@ -292,7 +363,7 @@ function NearestOverlayLayer({ origin, originLabel, showOriginPin, targets, radi
 
     if (showOriginPin) {
       L.marker([origin.lat, origin.lng], { icon: originIcon(), zIndexOffset: 900 })
-        .bindPopup(`<div class="dp-popup"><div class="dp-popup__title">${escapeHtml(originLabel)}</div></div>`)
+        .bindPopup(`<div class="dp-popup"><div class="dp-popup__title">${escapeHtml(originLabel)}</div></div>`, popupOptions())
         .addTo(group)
     }
   }, [origin, originLabel, showOriginPin, targets, radiusKm])
@@ -339,6 +410,7 @@ export function MapView({
         maxZoom={mapStyle.maxZoom}
         {...(mapStyle.subdomains ? { subdomains: mapStyle.subdomains } : {})}
       />
+      <ViewportSync />
       <ClusterLayer points={points} highlightPoints={highlightPoints} controllerRef={controllerRef} />
       <UserLocationLayer location={userLocation} />
       <NearestOverlayLayer
