@@ -4,10 +4,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SOURCE_XLSX = path.join(__dirname, '..', 'src', 'Excel', 'JAWA BALI MAPS.xlsx');
+const SOURCE_XLSX = path.join(__dirname, '..', 'src', 'Excel', 'JAWA_BALI_MAPS_UPDATED.xlsx');
 const OUT_JSON = path.join(__dirname, '..', 'src', 'data', 'dropPoints.json');
 
-const EXCLUDED_PROVINCES = new Set(['NUSA TENGGARA TIMUR', 'NUSA TENGGARA BARAT']);
+// The workbook carries audit/log sheets alongside the master data. Read the master
+// sheet by name — worksheets[0] is an audit log, not the drop point table.
+const DATA_SHEET = 'Sheet1';
 
 const COL = {
   hub: 2,
@@ -59,7 +61,10 @@ function formatHours(value) {
 async function main() {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(SOURCE_XLSX);
-  const sheet = workbook.worksheets[0];
+  const sheet = workbook.getWorksheet(DATA_SHEET);
+  if (!sheet) {
+    throw new Error(`Sheet "${DATA_SHEET}" not found in ${path.basename(SOURCE_XLSX)}`);
+  }
 
   const points = [];
   sheet.eachRow((row, rowNumber) => {
@@ -68,7 +73,7 @@ async function main() {
     if (!id) return;
 
     const province = row.getCell(COL.provinsi).value;
-    if (!province || EXCLUDED_PROVINCES.has(String(province).toUpperCase())) return;
+    if (!province) return;
 
     const lat = row.getCell(COL.latitude).value;
     const lng = row.getCell(COL.longitude).value;
